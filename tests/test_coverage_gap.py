@@ -3,20 +3,27 @@
 不依赖真实外网：网络层(scrape.scrape / orchestrate.retrieve)一律 monkeypatch；
 数据源(github._api_get)在既有 test_upgrade_sources.py 已覆盖。本文件补齐此前零测试的核心模块。
 """
-import os
+
 import json
+import os
+import sys
 
 HERE = os.path.dirname(__file__)
+ROOT = os.path.join(HERE, "..")
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from signal_search import scrape
-from signal_search import search
-from signal_search import orchestrate as report
-from signal_search import embed
-from signal_search import orchestrate as batch  # batch 已并入 orchestrate
-from signal_search import orchestrate as trace  # trace 已并入 orchestrate
-from signal_search import common
-from signal_search import research
-from signal_search import orchestrate
+import trace
+
+import batch
+import common
+import embed
+import orchestrate
+import report
+import research
+import scrape
+import search
+
+
 # ============================================================
 # search.py — 多引擎抓取层
 # ============================================================
@@ -26,8 +33,12 @@ def test_classify_source_type_gov():
 
 
 def test_classify_source_type_academic():
-    for u in ["https://arxiv.org/abs/123", "https://scholar.google.com", "https://cnki.net",
-              "https://wanfang.com"]:
+    for u in [
+        "https://arxiv.org/abs/123",
+        "https://scholar.google.com",
+        "https://cnki.net",
+        "https://wanfang.com",
+    ]:
         assert search.classify_source_type(u) == "academic"
 
 
@@ -41,8 +52,12 @@ def test_classify_source_type_pubmed():
 
 
 def test_classify_source_type_selfmedia():
-    for u in ["https://weibo.com/x", "https://www.zhihu.com/x", "https://toutiao.com",
-              "https://mp.weixin.qq.com/x"]:
+    for u in [
+        "https://weibo.com/x",
+        "https://www.zhihu.com/x",
+        "https://toutiao.com",
+        "https://mp.weixin.qq.com/x",
+    ]:
         assert search.classify_source_type(u) == "selfmedia"
 
 
@@ -55,8 +70,14 @@ def test_classify_source_type_unknown():
     assert search.classify_source_type("https://example.com/page") == "unknown"
 
 
-_CFG = {"engines": {"cn": [{"id": "baidu", "search_url": "https://baidu.com/s?q={q}"}],
-                    "global": [], "academic": [], "vertical": {}}}
+_CFG = {
+    "engines": {
+        "cn": [{"id": "baidu", "search_url": "https://baidu.com/s?q={q}"}],
+        "global": [],
+        "academic": [],
+        "vertical": {},
+    }
+}
 
 
 def _fake_scrape(url, meta=None):
@@ -87,8 +108,12 @@ def test_search_fetch_html_none_returns_empty(monkeypatch):
 # report.py — 答案合成层
 # ============================================================
 def _src(url, snippet, weighted=0.9, text=None):
-    return {"url": url, "snippet": snippet,
-            "text": text if text is not None else snippet, "weighted": weighted}
+    return {
+        "url": url,
+        "snippet": snippet,
+        "text": text if text is not None else snippet,
+        "weighted": weighted,
+    }
 
 
 def test_synthesize_empty():
@@ -97,8 +122,7 @@ def test_synthesize_empty():
 
 
 def test_synthesize_empty_with_schema():
-    schema = [{"name": "市场", "detail_level": "简要"},
-              {"name": "技术", "detail_level": "简要"}]
+    schema = [{"name": "市场", "detail_level": "简要"}, {"name": "技术", "detail_level": "简要"}]
     out = report.synthesize([], [], "q", schema=schema)
     assert "## 市场（简要）" in out and "（无来源）" in out
     assert "## 技术（简要）" in out
@@ -119,8 +143,10 @@ def test_synthesize_refs_and_confidence():
 
 def test_synthesize_conflict_flag():
     # 最低分 < 最高分 * 0.6 → 标"相反观点"
-    srcs = [_src("https://a.com/1", "主流观点认为X", 1.0),
-            _src("https://b.com/2", "反对观点认为Y", 0.4)]
+    srcs = [
+        _src("https://a.com/1", "主流观点认为X", 1.0),
+        _src("https://b.com/2", "反对观点认为Y", 0.4),
+    ]
     out = report.synthesize(srcs, [{"weighted": 1.0}, {"weighted": 0.4}], "q")
     assert "相反观点" in out and "反对观点认为Y" in out
 
@@ -184,9 +210,17 @@ def test_run_batch_calls_retrieve_each(monkeypatch):
 
     def fake_retrieve(q, constraints=None, cfg=None, **kwargs):
         captured.append(q)
-        return {"query": q, "sources": [], "scores": [], "findings": "",
-                "confidence": 0.0, "token_used": 0, "tier_used": "L1",
-                "warnings": [], "verify_issues": []}
+        return {
+            "query": q,
+            "sources": [],
+            "scores": [],
+            "findings": "",
+            "confidence": 0.0,
+            "token_used": 0,
+            "tier_used": "L1",
+            "warnings": [],
+            "verify_issues": [],
+        }
 
     monkeypatch.setattr(orchestrate, "retrieve", fake_retrieve)
     out = batch.run_batch(["q1", "q2", "q3"], cfg={})
@@ -246,11 +280,24 @@ def test_confirm_outline_early_returns(tmp_path):
 
     def fake_retriever(*a, **k):
         called["n"] += 1
-        return {"findings": "", "sources": [], "scores": [], "confidence": 0.0,
-                "token_used": 0, "tier_used": "L1", "warnings": [], "verify_issues": []}
+        return {
+            "findings": "",
+            "sources": [],
+            "scores": [],
+            "confidence": 0.0,
+            "token_used": 0,
+            "tier_used": "L1",
+            "warnings": [],
+            "verify_issues": [],
+        }
 
-    out = research("测试问题", tier="L1", retriever=fake_retriever,
-                            vault_dir=str(tmp_path), confirm_outline=True)
+    out = research.research(
+        "测试问题",
+        tier="L1",
+        retriever=fake_retriever,
+        vault_dir=str(tmp_path),
+        confirm_outline=True,
+    )
     assert out["needs_confirm"] is True
     assert out["findings"] == ""
     assert out["iterations"] == 0
