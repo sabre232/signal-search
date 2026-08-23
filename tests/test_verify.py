@@ -1,4 +1,6 @@
-from signal_search import verify
+import verify
+
+
 def test_citation_not_fetched():
     sources = [{"url": "https://a.com/1"}]
     findings = "见 https://a.com/1 与 https://b.com/2"
@@ -38,14 +40,19 @@ def test_fact_anchors_to_correct_source():
 
 def test_semantic_fact_verify_anchors(monkeypatch):
     """语义核验：关键词预筛命中后，语义相似度 ≥ 阈值 → TRUE 并锚定来源。"""
+
     def fake_embed(texts):
         # 含相同关键词的文本向量一致 → 高相似
-        return [[1.0, 0.0] if any(k in t for k in ("TCP", "面向连接")) else [0.0, 1.0] for t in texts]
+        return [
+            [1.0, 0.0] if any(k in t for k in ("TCP", "面向连接")) else [0.0, 1.0] for t in texts
+        ]
+
     def fake_sim(a, b):
         return 1.0 if a == b else 0.0
-    monkeypatch.setattr("signal_search.embed.embed", fake_embed)
-    monkeypatch.setattr("signal_search.embed.similarity", fake_sim)
-    monkeypatch.setattr("signal_search.embed._TRY_ST", True)
+
+    monkeypatch.setattr("embed.embed", fake_embed)
+    monkeypatch.setattr("embed.similarity", fake_sim)
+    monkeypatch.setattr("embed._TRY_ST", True)
 
     findings = "TCP 是面向连接的传输层协议。"
     sources = [{"url": "https://x.com/a", "text": "TCP 是面向连接的传输层协议，提供可靠传输。"}]
@@ -57,7 +64,7 @@ def test_semantic_fact_verify_anchors(monkeypatch):
 
 def test_semantic_fact_verify_falls_back_without_st(monkeypatch):
     """无 sentence-transformers 时语义路径自动回退关键词基线，不报假语义。"""
-    monkeypatch.setattr("signal_search.embed._TRY_ST", False)
+    monkeypatch.setattr("embed._TRY_ST", False)
     findings = "TCP 是面向连接的传输层协议。"
     sources = [{"url": "https://x.com/a", "text": "TCP 是面向连接的传输层协议，提供可靠传输。"}]
     res = verify.semantic_fact_verify(findings, sources, {"verify": {"semantic_threshold": 0.55}})
@@ -68,17 +75,19 @@ def test_semantic_fact_verify_falls_back_without_st(monkeypatch):
 
 def test_semantic_fact_verify_uncertain_below_threshold(monkeypatch):
     """语义相似度低于阈值 → UNCERTAIN（不轻判 FALSE）。"""
+
     def fake_embed(texts):
         return [[1.0, 0.0], [0.0, 1.0]]  # 事实与来源语义正交
+
     def fake_sim(a, b):
         return 0.1
-    monkeypatch.setattr("signal_search.embed.embed", fake_embed)
-    monkeypatch.setattr("signal_search.embed.similarity", fake_sim)
-    monkeypatch.setattr("signal_search.embed._TRY_ST", True)
+
+    monkeypatch.setattr("embed.embed", fake_embed)
+    monkeypatch.setattr("embed.similarity", fake_sim)
+    monkeypatch.setattr("embed._TRY_ST", True)
 
     findings = "月球是地球的卫星。"
     sources = [{"url": "https://x.com/a", "text": "TCP 是面向连接的传输层协议。"}]
     res = verify.semantic_fact_verify(findings, sources, {"verify": {"semantic_threshold": 0.55}})
     assert res and res[0]["verdict"] == "UNCERTAIN"
     assert res[0]["source"] is None
-
