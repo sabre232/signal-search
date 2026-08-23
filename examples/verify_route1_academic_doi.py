@@ -5,11 +5,14 @@
     （修复此前 Crossref 模糊查误命中导致的不正确 DOI）。
 (2) D3 @article 导出正确：当 citation.doi 为真实值时，vault._citation_bibtex 输出 @article。
 """
+
 import os
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from signal_search import academic
-from signal_search import vault
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+import academic
+import vault
+
 # (1) 真网：arXiv 检索
 docs, warns = academic.search("graph neural network", web_fetch=None)
 print(f"[live] docs={len(docs)} warns={warns}")
@@ -22,12 +25,19 @@ for d in docs[:8]:
 print(f"  含 DOI 论文数: {fake}/{len(docs)}  （无 key 时须为 0，绝不伪造）")
 
 # (2) D3 @article 导出正确性：以一条真实已验证 DOI 演示（NeurIPS 2017 Vaswani 等）
-real = [{
-    "url": "https://arxiv.org/abs/1706.03762",
-    "title": "Attention Is All You Need",
-    "citation": {"key": "arxiv-170603762", "authors": "Vaswani et al.", "year": "2017",
-                 "source": "arxiv", "doi": "10.5555/3295222.3295349"},
-}]
+real = [
+    {
+        "url": "https://arxiv.org/abs/1706.03762",
+        "title": "Attention Is All You Need",
+        "citation": {
+            "key": "arxiv-170603762",
+            "authors": "Vaswani et al.",
+            "year": "2017",
+            "source": "arxiv",
+            "doi": "10.5555/3295222.3295349",
+        },
+    }
+]
 bib = vault._citation_bibtex(real)
 print("\n[D3] 真实 DOI 经 vault 导出 →")
 print(bib)
