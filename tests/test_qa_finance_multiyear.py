@@ -5,13 +5,22 @@
 不依赖抖动网络（monkeypatch _f10_get）。
 """
 
+import os
+import sys
 
-from signal_search import finance
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/scripts")
+
+import finance
+
+
 def _multi_rows():
     """构造 9 个报告期：5 个年报(2020-2024) + 2025Q1 + 2024 三个季报。"""
     base = {  # 年报数据（元 / 百分数）
-        "SECURITY_CODE": "600519", "SECURITY_NAME_ABBR": "贵州茅台",
-        "BASIC_EPS": 0.0, "WEIGHTAVG_ROE": 0.0, "PARENT_BIPS": 0.0,
+        "SECURITY_CODE": "600519",
+        "SECURITY_NAME_ABBR": "贵州茅台",
+        "BASIC_EPS": 0.0,
+        "WEIGHTAVG_ROE": 0.0,
+        "PARENT_BIPS": 0.0,
     }
     annual = [
         ("2024-12-31 00:00:00", 1.741e11, 15.66, 8.62e10, 15.38, 68.64, 34.46),
@@ -22,14 +31,43 @@ def _multi_rows():
     ]
     rows = []
     for rd, inc, iy, npv, ny, eps, roe in annual:
-        rows.append({**base, "REPORTDATE": rd, "TOTAL_OPERATE_INCOME": inc, "YSTZ": iy,
-                     "PARENT_NETPROFIT": npv, "SJLTZ": ny, "BASIC_EPS": eps, "WEIGHTAVG_ROE": roe})
-    rows.append({**base, "REPORTDATE": "2025-03-31 00:00:00",
-                 "TOTAL_OPERATE_INCOME": 51443450583.77, "YSTZ": 10.67, "PARENT_NETPROFIT": 26847474238.76,
-                 "SJLTZ": 11.56, "BASIC_EPS": 21.38, "WEIGHTAVG_ROE": 12.34})
+        rows.append(
+            {
+                **base,
+                "REPORTDATE": rd,
+                "TOTAL_OPERATE_INCOME": inc,
+                "YSTZ": iy,
+                "PARENT_NETPROFIT": npv,
+                "SJLTZ": ny,
+                "BASIC_EPS": eps,
+                "WEIGHTAVG_ROE": roe,
+            }
+        )
+    rows.append(
+        {
+            **base,
+            "REPORTDATE": "2025-03-31 00:00:00",
+            "TOTAL_OPERATE_INCOME": 51443450583.77,
+            "YSTZ": 10.67,
+            "PARENT_NETPROFIT": 26847474238.76,
+            "SJLTZ": 11.56,
+            "BASIC_EPS": 21.38,
+            "WEIGHTAVG_ROE": 12.34,
+        }
+    )
     for rd in ("2024-09-30 00:00:00", "2024-06-30 00:00:00", "2024-03-31 00:00:00"):
-        rows.append({**base, "REPORTDATE": rd, "TOTAL_OPERATE_INCOME": 1.2e11, "YSTZ": 17.0,
-                     "PARENT_NETPROFIT": 6.0e10, "SJLTZ": 15.0, "BASIC_EPS": 47.0, "WEIGHTAVG_ROE": 28.0})
+        rows.append(
+            {
+                **base,
+                "REPORTDATE": rd,
+                "TOTAL_OPERATE_INCOME": 1.2e11,
+                "YSTZ": 17.0,
+                "PARENT_NETPROFIT": 6.0e10,
+                "SJLTZ": 15.0,
+                "BASIC_EPS": 47.0,
+                "WEIGHTAVG_ROE": 28.0,
+            }
+        )
     return rows
 
 
@@ -37,6 +75,7 @@ def _fake_f10(rows):
     def _get(url, timeout=12):
         # 对齐 _f10_get 返回签名：(status, parsed_dict)
         return 200, {"success": True, "result": {"data": rows}}
+
     return _get
 
 
@@ -62,10 +101,18 @@ def test_finance_report_multiyear_series(monkeypatch):
 def test_finance_report_annual_only_filter(monkeypatch):
     """非年报报告期(如 03-31/09-30)不进入年度序列。"""
     rows = [
-        {"SECURITY_CODE": "600519", "SECURITY_NAME_ABBR": "贵州茅台",
-         "REPORTDATE": "2025-03-31 00:00:00", "TOTAL_OPERATE_INCOME": 5.0e10, "YSTZ": 10.0,
-         "PARENT_NETPROFIT": 2.6e10, "SJLTZ": 11.0, "BASIC_EPS": 21.0, "WEIGHTAVG_ROE": 12.0,
-         "PARENT_BIPS": 180.0},
+        {
+            "SECURITY_CODE": "600519",
+            "SECURITY_NAME_ABBR": "贵州茅台",
+            "REPORTDATE": "2025-03-31 00:00:00",
+            "TOTAL_OPERATE_INCOME": 5.0e10,
+            "YSTZ": 10.0,
+            "PARENT_NETPROFIT": 2.6e10,
+            "SJLTZ": 11.0,
+            "BASIC_EPS": 21.0,
+            "WEIGHTAVG_ROE": 12.0,
+            "PARENT_BIPS": 180.0,
+        },
     ]
     monkeypatch.setattr(finance, "_f10_get", _fake_f10(rows))
     docs, _ = finance.fetch("600519 财报", cfg={}, web_fetch=None)
