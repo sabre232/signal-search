@@ -3,8 +3,14 @@
 锁定回归：常见 A 股全称（及含于查询的子串）应离线解析为代码，无需网络。
 """
 
+import os
+import sys
 
-from signal_search import finance
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/scripts")
+
+import finance
+
+
 def test_alias_exact_match():
     assert finance._resolve_name("贵州茅台", {}) == "600519"
     assert finance._resolve_name("宁德时代", {}) == "300750"
@@ -20,7 +26,7 @@ def test_alias_substring_in_query():
 
 def test_alias_longest_match_disambiguation():
     """子串命中多个别名时取最长匹配，降低歧义。"""
-    assert finance._resolve_name("平安银行股票", {}) == "000001"   # 平安银行 优先于 中国平安
+    assert finance._resolve_name("平安银行股票", {}) == "000001"  # 平安银行 优先于 中国平安
     assert finance._resolve_name("中国平安财报", {}) == "601318"
 
 
