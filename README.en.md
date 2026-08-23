@@ -2,12 +2,14 @@
 
 # Signal-Search
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/version-1.2.0-green.svg)]()
-[![Zero--Key](https://img.shields.io/badge/key-none-brightgreen.svg)]()
+[![Key: none](https://img.shields.io/badge/key-none-brightgreen.svg)]()
 
 > A lot of people research search. Few care about the answer.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sabre232/signal-search&type=Date)](https://star-history.com/#sabre232/signal-search&Date)
 
 Signal-Search is an **answer-quality layer**. It does not hand you a list of links to sort through — it returns a clean answer that is weighted-scored, fact-anchored, and token-budget-capped. No ads, citations traceable to real fetched URLs, depth adaptive to the question, and embeddable into other tools at zero cost.
 
@@ -303,3 +305,11 @@ Respect robots.txt (layered exemption: SERP, strict for landing pages), PII reda
 pytest tests/ -q
 python -m scripts.eval         # golden-set tier hit rate (offline)
 ```
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Signal-Search contributors
+
+Find this useful? ⭐ **Star it** so more people can find it.
