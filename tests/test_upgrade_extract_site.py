@@ -1,4 +1,5 @@
-from signal_search import extract
+import extract
+
 _ARXIV_HTML = """<html><body>
 <h1>Title</h1>
 <div class="abstract">This is the abstract content about attention.</div>
