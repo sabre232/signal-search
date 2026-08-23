@@ -1,4 +1,6 @@
-from signal_search import orchestrate as route
+import route
+
+
 def test_default_l1():
     assert route.classify_tier("推荐一部电影")[0] == "L1"
 
