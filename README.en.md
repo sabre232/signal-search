@@ -2,6 +2,11 @@
 
 # Signal-Search
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.2.0-green.svg)]()
+[![Zero--Key](https://img.shields.io/badge/key-none-brightgreen.svg)]()
+
 > A lot of people research search. Few care about the answer.
 
 Signal-Search is an **answer-quality layer**. It does not hand you a list of links to sort through — it returns a clean answer that is weighted-scored, fact-anchored, and token-budget-capped. No ads, citations traceable to real fetched URLs, depth adaptive to the question, and embeddable into other tools at zero cost.
@@ -136,7 +141,7 @@ On by default (`clean_sources.enabled: true`, zero-key, zero-config). The librar
 
 **Robustness**: sources unreachable in a CN sandbox (e.g. occasionally blocked gov sites) are silently skipped, not breaking other sources; tests / offline environments don't trigger network by default (force on with `SIGNAL_SEARCH_CLEAN_ON`, force off with `SIGNAL_SEARCH_OFFLINE`), not breaking existing gates.
 
-> For the source list, categories, `source_type`, `quality`, and per-source reachability snapshot, run `from signal_search.clean_sources import describe_clean_sources; print(describe_clean_sources())` live.
+> For the source list, categories, `source_type`, `quality`, and per-source reachability snapshot, run `from clean_sources import describe_clean_sources; print(describe_clean_sources())` live (with `scripts/` on the path).
 
 ### Source routing: select on demand, no more full fan-out
 
@@ -180,24 +185,27 @@ We put the limits out because vagueness is the real risk:
 
 ---
 
-## Installation
+## Getting started
+
+Signal-Search is a plain source tree (no installable package), so point Python at the repo and import from `scripts/`:
 
 ```bash
-pip install -e .                 # dev / editable mode
-# or runtime deps only:
-pip install -r requirements.txt
-# optional: M51 semantic fact verification (auto-degrades to keyword baseline if missing, no error)
-pip install ".[semantic]"
+# one-time runtime deps
+pip install trafilatura curl_cffi requests lxml markdownify
+
+# then, from anywhere:
+import sys; sys.path.insert(0, "/path/to/signal-search/scripts")
+from orchestrate import retrieve
 ```
 
-Python ≥ 3.9. Zero dependencies already runs the heuristic degrade path; real web fetching needs the core deps above (trafilatura / curl_cffi / requests / lxml / markdownify / beautifulsoup4).
+A fully runnable 3-line example lives in [`examples/quickstart.py`](examples/quickstart.py). Optional: `sentence-transformers` (~1GB) enables semantic fact verification — missing it just auto-degrades to the keyword baseline, no error.
 
 ## Architecture & source layout
 
 Signal-Search is cleanly layered; three "sources of truth" keep distinct responsibilities:
-- **`signal_search/config.json`** — the **single source of truth for engine parameters and all tunable defaults** (tier budgets, credibility table, compliance guardrails, enhancement switches), read at runtime by `load_config()`.
-- **`signal_search/clean_sources.py`'s `CLEAN_SOURCES`** — the registry of **65 pre-loaded clean sources (data, not config)**; zero-key, zero-config gets you paper-grade / authority-grade sources, complementary to config.json's `engines` as "parameters vs data" two mechanisms.
-- **`signal_search/*.py`** — quality-layer implementation: routing(`route`), planning(`plan`), fetching(`scrape`/`deepfetch`), extraction(`extract`), dedup(`dedup`), scoring(`score`), stop/budget(`stop`/`budget`), reporting(`report`), verification(`verify`), orchestration(`research`/`orchestrate`).
+- **`config.json`** (repo root) — the **single source of truth for engine parameters and all tunable defaults** (tier budgets, credibility table, compliance guardrails, enhancement switches), read at runtime by `load_config()`.
+- **`scripts/clean_sources.py`'s `CLEAN_SOURCES`** — the registry of **65 pre-loaded clean sources (data, not config)**; zero-key, zero-config gets you paper-grade / authority-grade sources, complementary to config.json's `engines` as "parameters vs data" two mechanisms.
+- **`scripts/*.py`** — quality-layer implementation: routing(`route`), planning(`plan`), fetching(`scrape`/`deepfetch`), extraction(`extract`), dedup(`dedup`), scoring(`score`), stop/budget(`stop`/`budget`), reporting(`report`), verification(`verify`), orchestration(`research`/`orchestrate`).
 - **`SKILL.md`** — WorkBuddy skill entry (when to use, call contract, tier routing).
 - **`references/`** — detailed specs (anti-scraping, intent, tiers, token-saving, golden set).
 
@@ -206,8 +214,10 @@ Design red line: **library not product, zero-key, zero-cost out-of-box, no LLM b
 ## Usage
 
 ```python
+import sys; sys.path.insert(0, "scripts")   # or use examples/quickstart.py as-is
+
 # one-line retrieval
-from signal_search import retrieve
+from orchestrate import retrieve
 r = retrieve("TCP 和 UDP 的核心区别", {"max_sources": 3}, 6000)
 print(r["findings"], r["sources"], r["tier_used"], r["confidence"])
 
@@ -222,7 +232,7 @@ r2 = retrieve("TCP 和 UDP 的核心区别",
 Paper / research-grade orchestration:
 
 ```python
-from signal_search import research
+from research import research
 out = research("TCP 和 UDP 的核心区别及原理", tier="L2")  # L2: 5 dimensions, single retrieve()
 print(out["tier"], out["schema"], out["findings"], out["uncertainties"])
 # tier="L3" multi-round refinement; agent_fn= injects sub-agent dispatch
@@ -255,7 +265,7 @@ All public parameters and minimal injection examples are in the technical append
 
 ## Technical appendix
 
-### Module map (`signal_search/`)
+### Module map (`scripts/`)
 
 | Module | Responsibility |
 |------|------|
@@ -290,6 +300,6 @@ Respect robots.txt (layered exemption: SERP, strict for landing pages), PII reda
 ### Running tests
 
 ```bash
-pytest -q
-python -m signal_search.eval   # golden-set tier hit rate (offline)
+pytest tests/ -q
+python -m scripts.eval         # golden-set tier hit rate (offline)
 ```
