@@ -1,4 +1,6 @@
-from signal_search import orchestrate as stop  # stop 已并入 orchestrate
+import stop
+
+
 def test_l0_budget_stop():
     r = stop.should_stop("L0", [[]], [], budget_hit=True)
     assert r["stop"] and not r["exhausted"]
