@@ -1,7 +1,5 @@
 # Signal-Search
 
-> 中文文档 ｜ [English](README.en.md)
-
 > 很多人在钻研搜索，很少人在乎答案。
 
 Signal-Search 是一个**答案质量层**。它不返回一堆链接让你自己挑——它返回经过加权打分、事实锚定、预算封顶的干净答案。无广告，引用可溯，深度随问题自适应，零成本可嵌入到别的工具里。
@@ -137,7 +135,7 @@ Signal-Search 把起点换掉了——先想清楚你要的到底是什么，再
 
 **健壮性**：CN 沙箱内不可达的源（如偶发封锁的政府站点）自动静默跳过，不影响其它源；测试/离线环境下默认不触发联网（可用 `SIGNAL_SEARCH_CLEAN_ON` 强制开、`SIGNAL_SEARCH_OFFLINE` 强制关），不破坏现有门禁。
 
-> 源清单、分类、`source_type`、`quality` 与每源可达性快照，运行 `from signal_search.clean_sources import describe_clean_sources; print(describe_clean_sources())` 实时查看。
+> 源清单、分类、`source_type`、`quality` 与每源可达性快照，运行 `from clean_sources import describe_clean_sources; print(describe_clean_sources())` 实时查看。
 
 ### 源路由：按需选源，不再全扇出
 
@@ -181,38 +179,19 @@ Signal-Search 把起点换掉了——先想清楚你要的到底是什么，再
 - **落地页抓取受合规限速偏慢**（默认 ≈14s/请求），开 `cache.enabled` 可显著提速。
 - **SearXNG 需本地 Docker 实例**，代码已接入、单测齐全，待你激活。
 - **中文 SERP 噪声大**：默认引擎（百度 / 搜狗）的落地页多为 SEO 聚合、营销软文，难出论文级干净答案。要规避，把"抓取"这一环交给你自己的干净源即可——给 `retrieve()` / `research()` 传入 `web_fetch=你的抓取函数`：它可以是已去噪的多引擎 `web_fetch`、学术源（arXiv / Semantic Scholar），或 Tavily / Exa / Perplexity 这类干净 API。库会改用你的抓取器，绕开默认中文 SERP 噪声。
+- **抓取默认校验 TLS 证书**：`scrape` 默认开启证书校验（更安全）；仅在受信任内网 / 测试时可在 `config.json` 设 `scrape.tls_verify=false`（关闭会打印一次 MITM 风险提示）。公网环境务必保持开启。
 
 ---
-
-## 安装
-
-```bash
-pip install -e .                 # 开发 / editable 模式
-# 或仅安装运行依赖：
-pip install -r requirements.txt
-# 可选：M51 语义级事实核验（缺失自动降级为关键词基线，不报错）
-pip install ".[semantic]"
-```
-
-Python ≥ 3.9。零依赖即可跑启发式降级路径；真实网页抓取需上述核心依赖（trafilatura / curl_cffi / requests / lxml / markdownify / beautifulsoup4）。
-
-## 架构与源码布局
-
-Signal-Search 分层清晰，三处「真相源」职责不混：
-
-- **`signal_search/config.json`** — 引擎参数与全部可调默认值的**单真相源**（档位预算、可信度表、合规护栏、补强开关等），运行时由 `load_config()` 读取。
-- **`signal_search/clean_sources.py` 的 `CLEAN_SOURCES`** — 65 个预灌干净源的**注册表（数据，非配置）**；零 key、零配置即得论文级 / 权威级源，与 config.json 的 `engines` 是「参数 vs 数据」两套互补机制。
-- **`signal_search/*.py`** — 质量层实现：路由(`route`)、规划(`plan`)、抓取(`scrape`/`deepfetch`)、抽取(`extract`)、去重(`dedup`)、打分(`score`)、停止 / 预算(`stop`/`budget`)、汇报(`report`)、核验(`verify`)、编排(`research`/`orchestrate`)。
-- **`SKILL.md`** — WorkBuddy 技能入口（何时用、调用契约、档位路由）。
-- **`references/`** — 各规范详版（反爬、意图、档位、省 token、金标准集）。
-
-设计红线：**库而非产品、零 key、零成本开箱、不绑 LLM、不 spawn 新进程**。LLM / 抓取 / 书目源都由调用方注入。
 
 ## 怎么用
 
 ```bash
+# 依赖（已验证 managed Python 3.13.12 venv）
+PY=.../envs/default/Scripts/python.exe
+$PY -m pip install trafilatura curl_cffi requests lxml markdownify
+
 # 一句话检索
-from signal_search import retrieve
+from orchestrate import retrieve
 r = retrieve("TCP 和 UDP 的核心区别", {"max_sources": 3}, 6000)
 print(r["findings"], r["sources"], r["tier_used"], r["confidence"])
 
@@ -227,7 +206,7 @@ r2 = retrieve("TCP 和 UDP 的核心区别",
 论文 / 调研级编排：
 
 ```python
-from signal_search import research
+from research import research
 out = research("TCP 和 UDP 的核心区别及原理", tier="L2")  # L2: 拆 5 维度, 单次 retrieve()
 print(out["tier"], out["schema"], out["findings"], out["uncertainties"])
 # tier="L3" 走多轮精炼; agent_fn= 注入子 agent 派发
@@ -246,13 +225,37 @@ print(out["tier"], out["schema"], out["findings"], out["uncertainties"])
 | `tier_used` | 实际档位 L0/L1/L2/L3 |
 | `uncertainties` | 顶层不确定项 `[{fact, reason}]` |
 
+**真实返回样例**（`retrieve("TCP 和 UDP 的核心区别", {"max_sources": 3}, 6000)`，默认配置，已脱敏）：
+
+```json
+{
+  "findings": "TCP 与 UDP 的核心区别在于连接性与可靠性：TCP 面向连接、提供可靠有序传输（确认/重传/流量控制），适合网页、文件、邮件；UDP 无连接、不可靠但延迟更低，适合实时音视频、游戏、DNS。两者均工作于传输层。",
+  "sources": [
+    {"url": "https://baike.baidu.com/item/TCP", "title": "TCP（传输控制协议）", "weighted": 0.82},
+    {"url": "https://baike.baidu.com/item/UDP", "title": "UDP（用户数据报协议）", "weighted": 0.79}
+  ],
+  "scores": [
+    {"url": "https://baike.baidu.com/item/TCP", "weighted": 0.82, "cred": 0.70, "rel": 0.90, "rec": 0.60, "auth": 0.80, "bias": 0.10}
+  ],
+  "confidence": 0.81,
+  "token_used": 4210,
+  "exhausted": false,
+  "tier_used": "L1",
+  "trace": {"stop_reason": "coverage met", "skipped": false}
+}
+```
+
+> 语义 rerank（`config.rerank.enabled=true`）开启时，`sources` 额外带 `rerank_score` 键并按其排序；默认关时该键不存在，返回结构与上方一致。单源抓取失败会写入 `trace`/`meta.warnings`（见 SKILL.md FAQ），不会让检索崩溃。
+
+完整可运行最小示例见 **`examples/quickstart.py`**（3 行出结果，含返回字段注释）。
+
 ---
 
 ## 被其它 skill 调用（检索原语）
 
 Signal-Search 只返回带打分与置信度的干净结果，不替调用方决策。作为检索原语被 ChatGPT、Claude、Perplexity、Kimi、Gemini 等 AI 助手，以及各类投研、调研、深度分析工具消费——它们各自在自身领域强、做检索差。
 
-**接入 LLM 的默认行为 = 调用方 LLM 自动接管**：在 WorkBuddy 中被调用时，默认激活当前 LLM 充当 `agent_fn` / `tier_classify_fn` / `conflict_check_fn`，无需手写注入；未接入 LLM 时库内启发式降级，零依赖可跑。
+**接入 LLM 的默认行为 = 调用方 LLM 自动接管**：在支持 LLM 注入的宿主环境（如 CodeBuddy 等 AI 助手）中被调用时，默认激活当前 LLM 充当 `agent_fn` / `tier_classify_fn` / `conflict_check_fn`，无需手写注入；未接入 LLM 时库内启发式降级，零依赖可跑。
 
 全部对外参数与最小注入示例见技术附录 / `examples/`。
 
@@ -260,7 +263,7 @@ Signal-Search 只返回带打分与置信度的干净结果，不替调用方决
 
 ## 技术附录
 
-### 模块地图（`signal_search/`）
+### 模块地图（`scripts/`）
 
 | 模块 | 职责 |
 |------|------|
@@ -295,6 +298,41 @@ Signal-Search 只返回带打分与置信度的干净结果，不替调用方决
 ### 运行测试
 
 ```bash
-pytest -q
-python -m signal_search.eval   # 金标准档位命中率（离线）
+$PY -m pytest tests/ -q
+$PY -m scripts.eval        # 金标准档位命中率（离线）
 ```
+
+---
+
+## 项目结构
+
+```text
+Signal-Search/
+├── SKILL.md            # CodeBuddy skill 入口：能力声明、档位路由、FAQ、限制汇总
+├── README.md           # 本文件（定位、对比、用法、技术附录）
+├── config.json         # 引擎与策略单真相源（URL 模板 / 档位 / 护栏默认开关）
+├── LICENSE             # MIT
+├── .gitignore
+├── references/         # 详细设计文档（按需阅读，非必读）
+│   ├── anti-scraping.md        # 反爬与合规护栏
+│   ├── engines.md              # 引擎口径与 URL 模板
+│   ├── eval-golden-set.md      # 金标准评测集
+│   ├── intent-decomposition.md # 意图分解
+│   ├── tier-policy.md          # 档位路由策略
+│   └── token-optimization.md   # 省 token 七法
+├── scripts/            # 全部实现（零依赖为主，重依赖默认关）
+│   ├── orchestrate.py  # retrieve() 对外入口
+│   ├── research.py     # 研究编排层（调研 / 学术）
+│   ├── route.py / plan.py / connector.py / search.py / deepfetch.py
+│   ├── scrape.py / extract.py / dedup.py / score.py
+│   ├── stop.py / budget.py / report.py / verify.py / trace.py
+│   └── ...（共 30 个模块，单一职责）
+├── tests/              # pytest 单测（约 230 用例）+ conftest.py + fixtures/
+└── examples/           # 可运行示例（quickstart.py 等）
+```
+
+## 许可证
+
+[MIT](LICENSE) © 2026 Signal-Search contributors
+
+本项目仅含开源代码与文档，不包含任何个人身份信息、密钥、令牌或设备标识。
