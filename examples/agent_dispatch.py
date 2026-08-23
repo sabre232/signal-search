@@ -4,7 +4,8 @@ Signal-Search 库本身不 spawn agent（更轻边界）。要真正并行派多
 由调用方实现 agent_fn(prompt, dim, fetch_fn) 并传给 research()。本文件给一个最小可运行
 模板：用伪 agent 演示契约（替换 _fake_agent 为你真实的 agent/LLM 调用即可）。
 """
-from typing import Dict, Any, List
+
+from typing import Any, Dict, List
 
 
 def _fake_agent(prompt: str, dim: Dict[str, Any], fetch_fn=None) -> List[Dict[str, Any]]:
@@ -16,21 +17,28 @@ def _fake_agent(prompt: str, dim: Dict[str, Any], fetch_fn=None) -> List[Dict[st
     # 真实实现示例（伪代码）：
     #   resp = your_llm.chat(prompt, tools=[fetch_web])
     #   return [{"url": u, "text": t, "source_type": "web"} for u, t in resp.citations]
-    return [{
-        "url": "https://example.com/" + str(dim.get("name", "dim")),
-        "text": f"[fake agent] {prompt[:60]}",
-        "source_type": "web",
-    }]
+    return [
+        {
+            "url": "https://example.com/" + str(dim.get("name", "dim")),
+            "text": f"[fake agent] {prompt[:60]}",
+            "source_type": "web",
+        }
+    ]
 
 
 def run_example(query: str, cfg: Dict[str, Any] = None) -> Dict[str, Any]:
-    from signal_search import research
+    import research
+
     return research.research(
-        query, cfg=cfg, tier="L3", agent_fn=_fake_agent,
+        query,
+        cfg=cfg,
+        tier="L3",
+        agent_fn=_fake_agent,
         vault_dir=None,  # 设 "./research_vault" 可落盘
     )
 
 
 if __name__ == "__main__":
     import json
+
     print(json.dumps(run_example("对比 TCP 与 UDP 的拥塞控制"), ensure_ascii=False, indent=2))
