@@ -1,33 +1,53 @@
-import os
 import json
+import os
+import sys
 
 HERE = os.path.dirname(__file__)
 ROOT = os.path.join(HERE, "..")
-from signal_search.common import CONFIG_PATH
-from signal_search import connector
-from signal_search import extract
-from signal_search import orchestrate as parallel  # parallel 已并入 orchestrate
-from signal_search import orchestrate
+CONFIG_PATH = os.path.join(ROOT, "config.json")
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+
+import connector
+import extract
+import parallel
+
+
 # ---- 默认关硬门槛（M55 例外）：config.json 开关断言 ----
 def test_default_off_hard_gate():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         cfg = json.load(f)
-    off_keys = ["rerank", "searxng", "dynamic_profiling", "conflict_typing",
-                "entity_resolution", "cache", "observability.trace"]
+    off_keys = [
+        "rerank",
+        "searxng",
+        "dynamic_profiling",
+        "conflict_typing",
+        "entity_resolution",
+        "observability.trace",
+    ]
     for k in off_keys:
         if k == "observability.trace":
             assert cfg["observability"]["trace"] is False, "observability.trace 必须为 false"
         else:
             assert cfg[k]["enabled"] is False, f"{k}.enabled 必须为 false（默认关硬门槛）"
+    # P2-10：cache 经计划明确改为默认开（TTL+内容哈希），从默认关硬门槛中移除；
+    # 其余增强项仍保持默认关，避免开箱即产生意外行为/副作用。
+    assert cfg["cache"]["enabled"] is True, "cache.enabled 必须为 true（P2-10 默认开）"
     # M55 例外：compliance 默认开
     assert cfg["compliance"]["enabled"] is True
 
 
 # ---- retrieve() 契约（monkeypatch 绕过联网/限速） ----
 def _fake_doc(url, snippet, source_type="media"):
-    return {"url": url, "raw_html": f"<html><body>{snippet}</body></html>",
-            "title": "t", "fetched_at": "", "engine": "Baidu",
-            "source_type": source_type, "snippet": snippet, "text": snippet}
+    return {
+        "url": url,
+        "raw_html": f"<html><body>{snippet}</body></html>",
+        "title": "t",
+        "fetched_at": "",
+        "engine": "Baidu",
+        "source_type": source_type,
+        "snippet": snippet,
+        "text": snippet,
+    }
 
 
 def _fake_load(query, freshness="中", constraints=None, cfg=None, web_fetch=None, **kwargs):
@@ -65,9 +85,19 @@ def test_retrieval_contract_all_tiers(monkeypatch):
         ("调研 agentic search 前沿方案与开源实现", "L3"),
     ]
     for q, exp_tier in cases:
-        res = orchestrate.retrieve(q, {}, cfg=cfg)
-        assert set(["findings", "sources", "scores", "confidence", "token_used",
-                    "exhausted", "tier_used", "trace"]) <= set(res.keys())
+        res = __import__("orchestrate").retrieve(q, {}, cfg=cfg)
+        assert set(
+            [
+                "findings",
+                "sources",
+                "scores",
+                "confidence",
+                "token_used",
+                "exhausted",
+                "tier_used",
+                "trace",
+            ]
+        ) <= set(res.keys())
         assert res["tier_used"] == exp_tier
         assert isinstance(res["findings"], str) and res["findings"]
         assert len(res["sources"]) >= 1
