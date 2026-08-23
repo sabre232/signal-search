@@ -1,6 +1,9 @@
 import os
 import tempfile
-from signal_search import cache
+
+import cache
+
+
 def test_cache_enabled_roundtrip():
     tmp = tempfile.mkdtemp()
     cfg = {"cache": {"enabled": True, "ttl_minutes": 10, "dir": os.path.join(tmp, ".cache/")}}
