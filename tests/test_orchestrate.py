@@ -5,18 +5,25 @@
 - 返回结构含 findings / sources / fact_verdicts
 - connector._select 默认仅 [Baidu, Sogou]；SearXNG 启用时折叠为 __searxng__
 """
-import os
+
 import json
+import os
+import sys
 
 HERE = os.path.dirname(__file__)
+ROOT = os.path.join(HERE, "..")
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from signal_search import connector
-from signal_search import orchestrate as dedup  # dedup 已并入 rank；此处别名 orchestrate 以便 monkeypatch 命中生产代码内部引用
-from signal_search import verify
-from signal_search import deepfetch
-from signal_search import extract
-from signal_search import orchestrate
-from signal_search.common import CONFIG_PATH
+import connector
+import dedup
+import deepfetch
+import extract
+import orchestrate
+import verify
+
+CONFIG_PATH = os.path.join(ROOT, "config.json")
+
+
 def _fast_cfg():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         cfg = json.load(f)
@@ -104,8 +111,9 @@ def test_internal_default_keyword_verify(monkeypatch):
 
     monkeypatch.setattr(verify, "semantic_fact_verify", _sem)
     monkeypatch.setattr(verify, "fact_level_verify", _kw)
-    monkeypatch.setattr(connector, "load",
-                        lambda *a, **k: [_ext_doc("https://x.com/a", "内容", "media")])
+    monkeypatch.setattr(
+        connector, "load", lambda *a, **k: [_ext_doc("https://x.com/a", "内容", "media")]
+    )
     monkeypatch.setattr(deepfetch, "resolve", lambda d, cf: d)
     monkeypatch.setattr(extract, "extract", lambda d, cf: None)
     cfg = _fast_cfg()
@@ -124,8 +132,10 @@ def test_external_dedup_loosened(monkeypatch):
 
     monkeypatch.setattr(dedup, "near_dup", _spy)
     cfg = _fast_cfg()
-    docs = [_ext_doc("https://gov.cn/a", "政策 5000 元", "gov"),
-            _ext_doc("https://news.com/b", "媒体报道 400 万辆", "media")]
+    docs = [
+        _ext_doc("https://gov.cn/a", "政策 5000 元", "gov"),
+        _ext_doc("https://news.com/b", "媒体报道 400 万辆", "media"),
+    ]
     orchestrate.retrieve("个税起征点", {}, cfg=cfg, docs=docs)
     assert seen.get("threshold") == 1  # 外部用 external_threshold=1
 
@@ -139,8 +149,9 @@ def test_internal_dedup_default_threshold(monkeypatch):
         return docs
 
     monkeypatch.setattr(dedup, "near_dup", _spy)
-    monkeypatch.setattr(connector, "load",
-                        lambda *a, **k: [_ext_doc("https://x.com/a", "内容", "media")])
+    monkeypatch.setattr(
+        connector, "load", lambda *a, **k: [_ext_doc("https://x.com/a", "内容", "media")]
+    )
     monkeypatch.setattr(deepfetch, "resolve", lambda d, cf: d)
     monkeypatch.setattr(extract, "extract", lambda d, cf: None)
     cfg = _fast_cfg()
