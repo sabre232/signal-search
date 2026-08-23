@@ -3,13 +3,16 @@
 不依赖真实外网：finance 走 monkeypatch scrape._fetch_system_curl，github 走 monkeypatch
 github._api_get。仅验证路由、解析、兜底与 warning 透传逻辑。
 """
+
 import json
 
-from signal_search import scrape
-from signal_search import connector
-from signal_search import finance
-from signal_search import github
-from signal_search import orchestrate
+import connector
+import finance
+import github
+import orchestrate
+import scrape
+
+
 # ---------- 意图路由 ----------
 def test_source_intent_finance():
     assert connector._source_intent("贵州茅台 股价 近半年波动") == "finance"
@@ -32,19 +35,45 @@ def test_source_intent_pe_not_false_positive():
 
 
 # ---------- 金融源（mock 系统 curl） ----------
-_QUOTE = {"rc": 0, "data": {"f43": "1685.00", "f57": "600519", "f58": "贵州茅台",
-                            "f60": "1666.00", "f116": "2116800000000", "f168": "0.5", "f170": "28.5"}}
-_KLINE = {"rc": 0, "data": {"klines": [
-    "2026-01-02,1600,1685,1700,1590,10000,1.6e9,2.1,1.1,0.5,0.4",
-    "2026-01-03,1685,1690,1695,1680,9000,1.5e9,1.0,0.3,0.4,0.3"]}}
-_FFLOW = {"rc": 0, "data": {"klines": [
-    "2026-01-02,1000000,200000,300000,400000,500000,600000,0.1",
-    "2026-01-03,1200000,250000,350000,450000,550000,650000,0.12"]}}
+_QUOTE = {
+    "rc": 0,
+    "data": {
+        "f43": "1685.00",
+        "f57": "600519",
+        "f58": "贵州茅台",
+        "f60": "1666.00",
+        "f116": "2116800000000",
+        "f168": "0.5",
+        "f170": "28.5",
+    },
+}
+_KLINE = {
+    "rc": 0,
+    "data": {
+        "klines": [
+            "2026-01-02,1600,1685,1700,1590,10000,1.6e9,2.1,1.1,0.5,0.4",
+            "2026-01-03,1685,1690,1695,1680,9000,1.5e9,1.0,0.3,0.4,0.3",
+        ]
+    },
+}
+_FFLOW = {
+    "rc": 0,
+    "data": {
+        "klines": [
+            "2026-01-02,1000000,200000,300000,400000,500000,600000,0.1",
+            "2026-01-03,1200000,250000,350000,450000,550000,650000,0.12",
+        ]
+    },
+}
 
 
 def _fake_curl_ok(url, headers, proxy, timeout=15):
     if "search/prefix" in url:
-        return 200, json.dumps({"rc": 0, "data": {"list": [{"code": "600519", "name": "贵州茅台"}]}}), url
+        return (
+            200,
+            json.dumps({"rc": 0, "data": {"list": [{"code": "600519", "name": "贵州茅台"}]}}),
+            url,
+        )
     if "stock/get" in url:
         return 200, json.dumps(_QUOTE), url
     if "kline" in url:
@@ -101,15 +130,22 @@ def test_finance_fetch_fail_no_web_fetch(monkeypatch):
 
 
 # ---------- GitHub 源（mock API） ----------
-_REPO = {"items": [
-    {"full_name": "org/llama", "description": "大模型", "stargazers_count": 1234, "language": "Python",
-     "html_url": "https://github.com/org/llama"}]}
+_REPO = {
+    "items": [
+        {
+            "full_name": "org/llama",
+            "description": "大模型",
+            "stargazers_count": 1234,
+            "language": "Python",
+            "html_url": "https://github.com/org/llama",
+        }
+    ]
+}
 
 
 def test_github_search_ok(monkeypatch):
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    monkeypatch.setattr(github, "_api_get",
-                        lambda url, tok: (200, _REPO, {}))
+    monkeypatch.setattr(github, "_api_get", lambda url, tok: (200, _REPO, {}))
     docs, warns = github.search("llama 框架", cfg={})
     assert len(docs) == 1
     d = docs[0]
@@ -174,9 +210,11 @@ def test_github_search_token_injected_preferred(monkeypatch):
     """由调用方提供：调用方注入 github_token 应优先于 env GITHUB_TOKEN。"""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     captured = {}
+
     def fake_api(url, tok):
         captured["tok"] = tok
         return (200, _REPO, {})
+
     monkeypatch.setattr(github, "_api_get", fake_api)
     docs, warns = github.search("llama 框架", cfg={}, github_token="injected_xyz")
     assert captured.get("tok") == "injected_xyz"
@@ -187,13 +225,18 @@ def test_research_passes_github_token(monkeypatch):
     """research(github_token=) 应透传到 GitHub 源（端到端调用方注入口子）。"""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     captured = {}
+
     def fake_api(url, tok):
         captured["tok"] = tok
         return (200, _REPO, {})
+
     monkeypatch.setattr(github, "_api_get", fake_api)
     monkeypatch.setattr(connector, "_source_intent", lambda q: "github")
-    from signal_search import research as research_mod
-    research_mod("github 上有什么好用的 llama 框架", tier="L1", github_token="from_research")
+    import research as research_mod
+
+    research_mod.research(
+        "github 上有什么好用的 llama 框架", tier="L1", github_token="from_research"
+    )
     assert captured.get("tok") == "from_research"
 
 
