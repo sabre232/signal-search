@@ -1,9 +1,21 @@
 import os
-from signal_search import vault
+
+import vault
+
 _SRC = [
     {"url": "https://e.com/a", "title": "A 文", "source_type": "web"},
-    {"url": "https://e.com/b", "title": "B 文", "source_type": "academic",
-     "citation": {"key": "arxiv-b", "doi": "10.1/b", "authors": "X", "year": "2024", "source": "arxiv"}},
+    {
+        "url": "https://e.com/b",
+        "title": "B 文",
+        "source_type": "academic",
+        "citation": {
+            "key": "arxiv-b",
+            "doi": "10.1/b",
+            "authors": "X",
+            "year": "2024",
+            "source": "arxiv",
+        },
+    },
 ]
 
 
