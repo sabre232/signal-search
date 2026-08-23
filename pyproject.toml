@@ -1,52 +1,10 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+# 开发期代码风格规范（不引入运行时依赖）
+# 格式化/检查工具：black + isort + flake8（仅开发环境使用）
+# flake8 配置见仓库根 .flake8（flake8 对 pyproject.toml 的发现存在优先级问题，故用 .flake8）
+[tool.black]
+line-length = 100
+target-version = ["py38"]
 
-[project]
-name = "signal-search"
-version = "1.0.0"
-description = "答案质量层检索库：带加权打分(SBA)、事实级锚定(M51)、分层深度(L0–L3)与 token 预算封顶的干净检索原语。"
-readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "MIT" }
-authors = [{ name = "Signal-Search contributors" }]
-keywords = ["search", "retrieval", "rag", "research", "fact-checking", "agent"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Text Processing :: Search",
-    "Topic :: Scientific/Engineering :: Information Analysis",
-]
-dependencies = [
-    "trafilatura>=1.12.0",
-    "curl_cffi>=0.7.0",
-    "requests>=2.31.0",
-    "lxml>=5.0.0",
-    "markdownify>=0.13.0",
-    "beautifulsoup4>=4.12.0",
-]
-
-[project.optional-dependencies]
-# 语义去重 / 语义级事实核验（M51）。缺失自动降级为关键词基线，不报错。
-semantic = ["sentence-transformers>=2.5.0"]
-# 开发：运行测试
-dev = ["pytest>=7.0"]
-
-[project.urls]
-Homepage = "https://github.com/your-org/signal-search"
-Repository = "https://github.com/your-org/signal-search"
-
-[tool.setuptools]
-packages = ["signal_search"]
-
-[tool.setuptools.package-data]
-signal_search = ["config.json"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
+[tool.isort]
+profile = "black"
+line_length = 100
