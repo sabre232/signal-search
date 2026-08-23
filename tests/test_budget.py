@@ -1,4 +1,6 @@
-from signal_search import orchestrate as budget  # budget 已并入 orchestrate
+import budget
+
+
 def test_monitor_over():
     assert budget.monitor(100, 80)["over"] is True
     assert budget.monitor(50, 80)["over"] is False
