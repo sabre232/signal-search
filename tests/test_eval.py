@@ -1,8 +1,13 @@
 import os
+import sys
 
 HERE = os.path.dirname(__file__)
+ROOT = os.path.join(HERE, "..")
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from signal_search import eval as eval_mod
+import eval as eval_mod
+
+
 def test_golden_parse():
     rows = eval_mod.load_golden()
     assert len(rows) == 24, f"金标准集应 24 条，实际 {len(rows)}"
