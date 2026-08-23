@@ -1,5 +1,10 @@
 # Signal-Search
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.2.0-green.svg)]()
+[![Zero--Key](https://img.shields.io/badge/key-none-brightgreen.svg)]()
+
 > 很多人在钻研搜索，很少人在乎答案。
 
 Signal-Search 是一个**答案质量层**。它不返回一堆链接让你自己挑——它返回经过加权打分、事实锚定、预算封顶的干净答案。无广告，引用可溯，深度随问题自适应，零成本可嵌入到别的工具里。
@@ -311,8 +316,7 @@ Signal-Search/
 ├── SKILL.md            # CodeBuddy skill 入口：能力声明、档位路由、FAQ、限制汇总
 ├── README.md           # 本文件（定位、对比、用法、技术附录）
 ├── config.json         # 引擎与策略单真相源（URL 模板 / 档位 / 护栏默认开关）
-├── LICENSE             # MIT
-├── .gitignore
+├── LICENSE.md          # MIT
 ├── references/         # 详细设计文档（按需阅读，非必读）
 │   ├── anti-scraping.md        # 反爬与合规护栏
 │   ├── engines.md              # 引擎口径与 URL 模板
@@ -333,6 +337,6 @@ Signal-Search/
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 Signal-Search contributors
+[MIT](LICENSE.md) © 2026 Signal-Search contributors
 
 本项目仅含开源代码与文档，不包含任何个人身份信息、密钥、令牌或设备标识。
