@@ -1,4 +1,6 @@
-from signal_search import rank as dedup  # dedup 已并入 rank
+import dedup
+
+
 def test_exact_url_dedup():
     docs = [
         {"url": "https://a.com", "snippet": "内容一", "title": "t1"},
@@ -21,3 +23,21 @@ def test_simhash_near_dup():
     ]
     out = dedup.near_dup(docs, threshold=5)
     assert len(out) == 2  # 前两条近似应合一
+
+
+def test_simhash_threshold_gating():
+    # 完全相同内容 → 汉明距=0 ≤ 任意 threshold（含 0）→ 必合一，验证 simhash 门控边界正确
+    shared = "苹果产业链 立讯精密 歌尔股份"
+    docs = [
+        {"url": "u1", "snippet": shared, "title": "t"},
+        {"url": "u2", "snippet": shared, "title": "t"},
+    ]
+    assert len(dedup.near_dup(docs, threshold=0)) == 1
+
+
+def test_jaccard_fallback():
+    # 措辞不同但词集高度重叠（Jaccard=0.75）→ 即便 simhash 不共享块，Jaccard 兜底也应合一
+    a = "人工智能 大模型 训练 推理 算力"
+    b = "人工智能 大模型 训练 推理 芯片"
+    docs = [{"url": "x", "snippet": a, "title": ""}, {"url": "y", "snippet": b, "title": ""}]
+    assert len(dedup.near_dup(docs)) == 1
