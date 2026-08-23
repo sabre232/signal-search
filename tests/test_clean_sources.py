@@ -3,13 +3,18 @@
 设计：全程不触网。供给器底层 `_fetch_one` 与 `build_clean_fetch` 均由 monkeypatch 接管，
 联网路径用 `SIGNAL_SEARCH_CLEAN_ON` 显式开闸、或用 fake 供给器替代，保证门禁不退步。
 """
+
 import os
+import sys
 import types
 
 HERE = os.path.dirname(__file__)
+ROOT = os.path.join(HERE, "..")
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from signal_search import clean_sources as cs
-from signal_search import orchestrate
+import clean_sources as cs
+import orchestrate
+
 # 真理源配置：全部非 keyed 类开启，ai_search 默认关（keyed 走 opt-in）
 CFG = {
     "clean_sources": {
@@ -34,8 +39,7 @@ CFG = {
 
 
 def _fake_doc(src, query):
-    return [{"url": f"https://{src['id']}.example/{query}",
-             "title": src["name"], "snippet": "x"}]
+    return [{"url": f"https://{src['id']}.example/{query}", "title": src["name"], "snippet": "x"}]
 
 
 def _fake_fetch_one(src, query, cfg, fetcher, timeout):
@@ -43,8 +47,9 @@ def _fake_fetch_one(src, query, cfg, fetcher, timeout):
 
 
 def _fake_expand(docs, scores, *a, **k):
-    exp = types.SimpleNamespace(docs=docs, scores=scores, exhausted=False,
-                                budget_hit=False, prev_rounds=[], new_batch=[])
+    exp = types.SimpleNamespace(
+        docs=docs, scores=scores, exhausted=False, budget_hit=False, prev_rounds=[], new_batch=[]
+    )
     return exp, []
 
 
@@ -58,8 +63,14 @@ def test_describe_registry():
     assert len(cats) == 8
     counts = {k: len(v) for k, v in cats.items()}
     assert counts == {
-        "intl_engines": 9, "reference": 3, "academic_api": 7, "authoritative": 8,
-        "industry_keyless": 16, "privacy_extra": 3, "cn_official": 15, "ai_search": 4,
+        "intl_engines": 9,
+        "reference": 3,
+        "academic_api": 7,
+        "authoritative": 8,
+        "industry_keyless": 16,
+        "privacy_extra": 3,
+        "cn_official": 15,
+        "ai_search": 4,
     }
     assert set(d["tiers_preset"]) == {"lite", "standard", "full"}
 
@@ -103,6 +114,7 @@ def test_lite_tier_filter(monkeypatch):
 def test_dedup_by_url(monkeypatch):
     def fake(src, query, cfg, fetcher, timeout):
         return [{"url": "https://shared.example/x", "title": src["name"], "snippet": "x"}]
+
     monkeypatch.setattr(cs, "_fetch_one", fake)
     provider = cs.build_clean_fetch(cfg=CFG, tiers="standard")
     docs = provider("q")
@@ -118,8 +130,9 @@ def test_keyed_optin_via_env(monkeypatch):
     monkeypatch.setattr(cs, "_fetch_one", _fake_fetch_one)
     # 默认（无 key）：ai_search 不出现
     provider = cs.build_clean_fetch(cfg=CFG, tiers="standard")
-    assert not any(d["engine"] in {"Tavily", "Exa", "Perplexity", "BraveAPI"}
-                   for d in provider("q"))
+    assert not any(
+        d["engine"] in {"Tavily", "Exa", "Perplexity", "BraveAPI"} for d in provider("q")
+    )
     # 注入 env key：Tavily 激活（即使 ai_search.enabled=false、tiers 不含 ai_search）
     monkeypatch.setenv("TAVILY_API_KEY", "x")
     provider2 = cs.build_clean_fetch(cfg=CFG, tiers="standard")
@@ -137,12 +150,14 @@ def test_rest_adapter_nbs():
 
     def fetcher_ok(url, timeout=4.0):
         return ("指标:A0101 名称:国内生产总值 值:1200000", "text/plain")
+
     out = cs._adapt_nbs(nbs, "GDP", CFG, fetcher_ok)
     assert len(out) == 1
     assert "stats.gov.cn" in out[0]["url"]
 
     def fetcher_empty(url, timeout=4.0):
         return ("", "text/plain")
+
     assert cs._adapt_nbs(nbs, "GDP", CFG, fetcher_empty) == []  # 无内容即跳过
 
 
@@ -155,10 +170,21 @@ def test_retrieve_merges_clean_sources(monkeypatch):
     monkeypatch.setattr(orchestrate, "_expand_if_needed", _fake_expand)
 
     def fake_provider(query):
-        return [{"url": "https://openalex.org/fake", "title": "Fake", "snippet": "x",
-                 "source_type": "academic", "quality": "A", "engine": "OpenAlex",
-                 "category": "academic_api", "access": "keyless",
-                 "clean_source": True, "landing_resolved": False}]
+        return [
+            {
+                "url": "https://openalex.org/fake",
+                "title": "Fake",
+                "snippet": "x",
+                "source_type": "academic",
+                "quality": "A",
+                "engine": "OpenAlex",
+                "category": "academic_api",
+                "access": "keyless",
+                "clean_source": True,
+                "landing_resolved": False,
+            }
+        ]
+
     monkeypatch.setattr(cs, "build_clean_fetch", lambda *a, **k: fake_provider)
 
     r = orchestrate.retrieve("test query", {}, 2000, cfg=CFG, web_fetch=None)
@@ -180,6 +206,7 @@ def test_clean_sources_gate_off_under_pytest(monkeypatch):
     def fake_bcf(*a, **k):
         called["n"] += 1
         return lambda q: []
+
     monkeypatch.setattr(cs, "build_clean_fetch", fake_bcf)
 
     orchestrate.retrieve("q", {}, 1000, cfg=CFG, web_fetch=None)
@@ -196,13 +223,22 @@ CFG_R = {
         "timeout": 1.0,
         "max_workers": 4,
         "overall_timeout": 5.0,
-        "routing": {"enabled": True, "mode": "select", "max_sources": 16,
-                     "include_general_floor": True, "fallback_to_tier": False},
+        "routing": {
+            "enabled": True,
+            "mode": "select",
+            "max_sources": 16,
+            "include_general_floor": True,
+            "fallback_to_tier": False,
+        },
         "categories": {
-            "intl_engines": {"enabled": True}, "reference": {"enabled": True},
-            "academic_api": {"enabled": True}, "authoritative": {"enabled": True},
-            "industry_keyless": {"enabled": True}, "privacy_extra": {"enabled": True},
-            "cn_official": {"enabled": True}, "ai_search": {"enabled": False, "keys": {}},
+            "intl_engines": {"enabled": True},
+            "reference": {"enabled": True},
+            "academic_api": {"enabled": True},
+            "authoritative": {"enabled": True},
+            "industry_keyless": {"enabled": True},
+            "privacy_extra": {"enabled": True},
+            "cn_official": {"enabled": True},
+            "ai_search": {"enabled": False, "keys": {}},
         },
     },
     "searxng": {"url": "http://localhost:8080"},
@@ -213,8 +249,11 @@ CORE_CATS = {"intl_engines", "reference"}
 
 def _active(srcs_cfg=None):
     cfg = srcs_cfg or CFG_R
-    return [s for s in cs.CLEAN_SOURCES
-            if any(cs._source_active(s, t, cfg, None) for t in ("lite", "standard", "full"))]
+    return [
+        s
+        for s in cs.CLEAN_SOURCES
+        if any(cs._source_active(s, t, cfg, None) for t in ("lite", "standard", "full"))
+    ]
 
 
 def test_route_selects_topic_subset():
@@ -258,8 +297,12 @@ def test_route_off_mode_returns_all():
 def test_route_fallback_to_tier_fills_others():
     cfg = dict(CFG_R)
     cfg["clean_sources"] = dict(cfg["clean_sources"])
-    cfg["clean_sources"]["routing"] = {"enabled": True, "mode": "select",
-                                       "max_sources": 16, "fallback_to_tier": True}
+    cfg["clean_sources"]["routing"] = {
+        "enabled": True,
+        "mode": "select",
+        "max_sources": 16,
+        "fallback_to_tier": True,
+    }
     active = _active(cfg)
     # 未识别主题 + 开启回退 → 应补满其余源（受 cap）
     sel = cs.select_sources("随便聊聊今天天气不错", active, cfg)
@@ -284,6 +327,7 @@ def test_router_fn_injection_overrides_heuristic():
 
     provider = cs.build_clean_fetch(cfg=CFG_R, router_fn=lambda q, srcs: picked)
     import unittest.mock as _mock
+
     with _mock.patch.object(cs, "_fetch_one", fake_fetch_one):
         docs = provider("任意查询")
     assert {d["engine"] for d in docs} == {s["id"] for s in picked}
@@ -303,28 +347,37 @@ def test_custom_source_plugs_in_real_extraction():
     """私有源经 url_template + json_items + item_map 接入，走真实 rest 抽取链路，
     并与 65 公开源平等进质量层（source_type/quality/clean_source 等元数据齐全）。"""
     import json as _json
+
     cfg = dict(CFG)
     cfg["clean_sources"] = dict(cfg["clean_sources"])
-    cfg["clean_sources"]["custom_sources"] = [{
-        "id": "mykb", "name": "公司内部知识库",
-        "url_template": "https://kb.internal/api/search?q={q}",
-        "json_items": "results",
-        "item_map": {"url": "link", "title": "t", "snippet": "s"},
-        "quality": "A", "source_type": "internal",
-    }]
+    cfg["clean_sources"]["custom_sources"] = [
+        {
+            "id": "mykb",
+            "name": "公司内部知识库",
+            "url_template": "https://kb.internal/api/search?q={q}",
+            "json_items": "results",
+            "item_map": {"url": "link", "title": "t", "snippet": "s"},
+            "quality": "A",
+            "source_type": "internal",
+        }
+    ]
 
     def fake_fetcher(url, timeout=4.0):
         assert "q=" in url  # {q} 已编码注入（url 构造链路生效）
-        body = _json.dumps({"results": [
-            {"link": "https://kb.internal/doc1", "t": "Doc One", "s": "snippet one"},
-            {"link": "https://kb.internal/doc2", "t": "Doc Two", "s": "snippet two"},
-        ]}).encode("utf-8")
+        body = _json.dumps(
+            {
+                "results": [
+                    {"link": "https://kb.internal/doc1", "t": "Doc One", "s": "snippet one"},
+                    {"link": "https://kb.internal/doc2", "t": "Doc Two", "s": "snippet two"},
+                ]
+            }
+        ).encode("utf-8")
         return (body, "application/json")
 
     provider = cs.build_clean_fetch(cfg=cfg, tiers="standard", fetcher=fake_fetcher)
     docs = provider("产品上线 checklist")
     ids = {d["engine"] for d in docs}
-    assert "mykb" in ids                       # 私有源默认必打（force_include）
+    assert "mykb" in ids  # 私有源默认必打（force_include）
     kb = [d for d in docs if d["engine"] == "mykb"]
     assert len(kb) == 2
     assert kb[0]["url"] == "https://kb.internal/doc1"
@@ -339,11 +392,14 @@ def test_custom_source_keyed_optin(monkeypatch):
     """自定义源带 key_env → 自动变 keyed opt-in：无 key 不激活，env 注入即活。"""
     cfg = dict(CFG)
     cfg["clean_sources"] = dict(cfg["clean_sources"])
-    cfg["clean_sources"]["custom_sources"] = [{
-        "id": "securekb", "name": "加密内网库",
-        "url_template": "https://secure.internal/search?q={q}&token={token}",
-        "key_env": "SECURE_KB_KEY",
-    }]
+    cfg["clean_sources"]["custom_sources"] = [
+        {
+            "id": "securekb",
+            "name": "加密内网库",
+            "url_template": "https://secure.internal/search?q={q}&token={token}",
+            "key_env": "SECURE_KB_KEY",
+        }
+    ]
     monkeypatch.setattr(cs, "_fetch_one", _fake_fetch_one)
     # 无 key：securekb 不出现
     provider = cs.build_clean_fetch(cfg=cfg, tiers="standard")
@@ -359,7 +415,8 @@ def test_custom_source_keyed_optin(monkeypatch):
 # ---------------------------------------------------------------------------
 def test_load_config_caches_same_object():
     """load_config() 无参返回进程级单例（同对象）；传入 cfg 原样返回。"""
-    from signal_search import common
+    import common
+
     a = common.load_config()
     b = common.load_config()
     assert a is b
@@ -379,12 +436,14 @@ def test_active_srcs_cache_bounded_under_distinct_cfg_objects():
 def test_concurrent_build_threadsafe():
     """并发 build_clean_fetch 不崩、结果一致（缓存读-改-写已加锁）。"""
     import threading
+
     errs = []
 
     def worker():
         try:
-            cs.build_clean_fetch(cfg={"clean_sources": {"default_tier": "standard",
-                                                        "categories": {}}})
+            cs.build_clean_fetch(
+                cfg={"clean_sources": {"default_tier": "standard", "categories": {}}}
+            )
         except Exception as e:  # pragma: no cover - 仅用于断言收集
             errs.append(repr(e))
 
@@ -401,11 +460,15 @@ def test_custom_source_missing_q_warns():
     （不抛、不误伤正常 static 源）。"""
     cfg = dict(CFG)
     cfg["clean_sources"] = dict(cfg["clean_sources"])
-    cfg["clean_sources"]["custom_sources"] = [{
-        "id": "staticfeed", "name": "静态订阅源",
-        "url_template": "https://feed.internal/latest",  # 缺 {q} 且非 static
-        "response": "json", "json_items": "items",
-    }]
+    cfg["clean_sources"]["custom_sources"] = [
+        {
+            "id": "staticfeed",
+            "name": "静态订阅源",
+            "url_template": "https://feed.internal/latest",  # 缺 {q} 且非 static
+            "response": "json",
+            "json_items": "items",
+        }
+    ]
     warn: list = []
     list(cs._custom_sources(cfg, warn))
     assert any("缺 {q}" in w for w in warn)
@@ -414,5 +477,3 @@ def test_custom_source_missing_q_warns():
     warn2: list = []
     list(cs._custom_sources(cfg, warn2))
     assert not any("缺 {q}" in w for w in warn2)
-
-
