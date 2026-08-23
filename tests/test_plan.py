@@ -1,4 +1,6 @@
-from signal_search import orchestrate as plan
+import plan
+
+
 def test_intent_fact():
     r = plan.classify_intent("Python 怎么读文件")
     assert r["intent"] in ("fact", "howto")
@@ -10,10 +12,14 @@ def test_intent_compare():
 
 
 def test_plan_compare_decompose():
-    leaves = plan.plan_queries("对比 百度学术 与 Google Scholar 的文献覆盖", plan.classify_intent("对比 百度学术 与 Google Scholar 的文献覆盖"), width_cap=8)
+    leaves = plan.plan_queries(
+        "对比 百度学术 与 Google Scholar 的文献覆盖",
+        plan.classify_intent("对比 百度学术 与 Google Scholar 的文献覆盖"),
+        width_cap=8,
+    )
     # 应拆出多个子查询（成分型 fan-out）
     assert len(leaves) >= 2
-    assert all("文献覆盖" in l["q"] for l in leaves if not l.get("truncated"))
+    assert all("文献覆盖" in leaf["q"] for leaf in leaves if not leaf.get("truncated"))
 
 
 def test_plan_width_cap():
